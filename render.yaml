@@ -5,7 +5,10 @@ services:
     env: python
     region: ohio
     plan: free
-    buildCommand: pip install -r pyproject.toml
+    buildCommand: >
+      pip install email-validator==2.1.0 flask==3.0.2 flask-sqlalchemy==3.1.1 
+      gunicorn==23.0.0 psycopg2-binary==2.9.9 
+      python-telegram-bot==20.8 sqlalchemy==2.0.29
     startCommand: gunicorn --bind 0.0.0.0:$PORT --reuse-port main:app
     envVars:
       - key: PYTHON_VERSION
