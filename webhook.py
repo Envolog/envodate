@@ -63,11 +63,8 @@ def setup_webhook(app: Flask, bot: Application, token: str):
                 
                 # Process the update
                 try:
-                    # Create a future to run the process_update coroutine
-                    future = asyncio.run_coroutine_threadsafe(
-                        bot.process_update(update),
-                        bot._loop
-                    )
+                    # Use the event loop we created earlier
+                    loop.run_until_complete(bot.process_update(update))
                     logger.info("Update processing started")
                 except Exception as e:
                     logger.error(f"Failed to process update: {e}")
