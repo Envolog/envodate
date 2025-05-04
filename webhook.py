@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import traceback
 from flask import Flask, request, jsonify
 from telegram import Update
 from telegram.ext import Application
@@ -22,34 +23,59 @@ def setup_webhook(app: Flask, bot: Application, token: str):
     """
     webhook_url_path = f"/webhook/{token}"
     
-    @app.route(webhook_url_path, methods=["POST"])
+    @app.route(webhook_url_path, methods=["POST", "GET"])
     async def webhook():
         """Process incoming webhook updates from Telegram"""
+        # Handle GET requests (for testing)
+        if request.method == "GET":
+            return jsonify({"status": "success", "message": "Webhook endpoint is active"}), 200
+            
+        # Handle POST requests (actual updates)
         if request.method == "POST":
             try:
                 # Get the update data
-                update_data = request.get_json(force=True)
-                logger.debug(f"Received update: {json.dumps(update_data, indent=2)}")
+                try:
+                    update_data = request.get_json(force=True)
+                    logger.info(f"Received update from Telegram")
+                    logger.debug(f"Update data: {json.dumps(update_data, indent=2)}")
+                except Exception as e:
+                    logger.error(f"Failed to parse update JSON: {e}")
+                    return jsonify({"status": "success", "message": "Could not parse update data"}), 200
                 
                 # Initialize the bot if needed
                 try:
                     await initialize_bot(bot)
+                    logger.info("Bot initialized successfully")
                 except Exception as e:
-                    logger.warning(f"Bot initialization warning: {e}")
+                    logger.error(f"Bot initialization error: {e}")
+                    # Continue processing even if initialization has issues
                 
                 # Convert to a Telegram Update object
-                update = Update.de_json(update_data, bot.bot)
+                try:
+                    update = Update.de_json(update_data, bot.bot)
+                except Exception as e:
+                    logger.error(f"Failed to convert update: {e}")
+                    return jsonify({"status": "success", "message": "Invalid update format"}), 200
                 
                 # Process the update in a background task to avoid blocking
-                asyncio.create_task(bot.process_update(update))
+                try:
+                    asyncio.create_task(bot.process_update(update))
+                    logger.info("Update processing started")
+                except Exception as e:
+                    logger.error(f"Failed to process update: {e}")
+                    # Continue and return success anyway
                 
-                # Return success immediately
+                # Always return success to Telegram
                 return jsonify({"status": "success"})
             except Exception as e:
-                logger.error(f"Error processing update: {e}")
-                return jsonify({"status": "error", "message": str(e)}), 500
+                # Get detailed traceback
+                error_traceback = traceback.format_exc()
+                logger.error(f"Webhook error: {str(e)}")
+                logger.error(f"Traceback: {error_traceback}")
+                # Always return 200 OK to Telegram to prevent retries
+                return jsonify({"status": "success", "message": "Error handled"}), 200
         else:
-            return jsonify({"status": "error", "message": "Method not allowed"}), 405
+            return jsonify({"status": "success", "message": "Method not allowed"}), 200
     
     # Webhook ping endpoint removed - using the one in main.py instead
     
