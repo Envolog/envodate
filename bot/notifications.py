@@ -145,45 +145,49 @@ async def check_channel_membership(context: ContextTypes.DEFAULT_TYPE, user_id: 
     if not REQUIRE_CHANNEL_MEMBERSHIP:
         return True
     
+    # Set default results to True in case of errors
+    official_result = True
+    confession_result = True
+    
     try:
-        # Check official channel membership
-        official_result = False
+        # Check official channel membership if configured
         if OFFICIAL_CHANNEL_ID:
             try:
                 official_status = await context.bot.get_chat_member(
                     chat_id=OFFICIAL_CHANNEL_ID,
                     user_id=user_id
                 )
-                official_result = official_status.status in ['member', 'administrator', 'creator']
+                status_str = official_status.status
+                official_result = status_str in ['member', 'administrator', 'creator']
+                logger.info(f"Official channel check for user {user_id}: {status_str} -> {official_result}")
             except Exception as inner_e:
                 logger.error(f"Error checking official channel membership: {inner_e}")
-                official_result = True  # If there's an error, assume they're a member
-        else:
-            # If no channel ID is set, consider it a success
-            official_result = True
+                # If there's an error, assume they're a member to not block registration
+                official_result = True
         
-        # Check confession channel membership
-        confession_result = False
+        # Check confession channel membership if configured
         if CONFESSION_CHANNEL_ID:
             try:
                 confession_status = await context.bot.get_chat_member(
                     chat_id=CONFESSION_CHANNEL_ID,
                     user_id=user_id
                 )
-                confession_result = confession_status.status in ['member', 'administrator', 'creator']
+                status_str = confession_status.status
+                confession_result = status_str in ['member', 'administrator', 'creator']
+                logger.info(f"Confession channel check for user {user_id}: {status_str} -> {confession_result}")
             except Exception as inner_e:
                 logger.error(f"Error checking confession channel membership: {inner_e}")
-                confession_result = True  # If there's an error, assume they're a member
-        else:
-            # If no channel ID is set, consider it a success
-            confession_result = True
+                # If there's an error, assume they're a member to not block registration
+                confession_result = True
         
         # User must be a member of both channels
-        return official_result and confession_result
+        final_result = official_result and confession_result
+        logger.info(f"Channel membership check result for user {user_id}: {final_result}")
+        return final_result
     
     except Exception as e:
         logger.error(f"Error checking channel membership: {e}")
-        # In case of error, let the user proceed
+        # In case of error, let the user proceed rather than blocking them
         return True
 
 async def prompt_channel_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

@@ -27,109 +27,134 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     user = update.effective_user
     telegram_id = user.id
     
-    # Check if user already exists and registration is complete
-    existing_user = User.query.filter_by(telegram_id=telegram_id).first()
+    # Variables declared outside try blocks for wider scope
+    new_user = None
+    existing_user = None
+    welcome_messages = []
     
-    if existing_user and existing_user.registration_complete:
-        await update.message.reply_text(
-            f"👋 *Welcome back to UniMatch Ethiopia, {existing_user.full_name}!* 👋\n\n"
-            "Your profile is already set up and ready to go! Here's what you can do next:\n\n"
-            "🔍 Use /find to discover new matches\n"
-            "❤️ Use /matches to view your current matches\n"
-            "🤫 Use /confess to share an anonymous confession in UniMatchConfessions\n"
-            "❓ Use /help to see all available commands",
-            parse_mode="Markdown"
-        )
-        return ConversationHandler.END
-    
-    # Check if the user is a member of required channels before registration
-    from bot.notifications import check_channel_membership, prompt_channel_subscription
-    from config import REQUIRE_CHANNEL_MEMBERSHIP
-    
-    if REQUIRE_CHANNEL_MEMBERSHIP:
-        is_member = await check_channel_membership(context, telegram_id)
-        if not is_member:
-            # User needs to join the channels first
-            await prompt_channel_subscription(update, context)
-            # End the conversation and wait for callback_query
+    try:
+        # Check if user already exists and registration is complete
+        existing_user = User.query.filter_by(telegram_id=telegram_id).first()
+        
+        if existing_user and existing_user.registration_complete:
+            await update.message.reply_text(
+                f"👋 *Welcome back to UniMatch Ethiopia, {existing_user.full_name}!* 👋\n\n"
+                "Your profile is already set up and ready to go! Here's what you can do next:\n\n"
+                "🔍 Use /find to discover new matches\n"
+                "❤️ Use /matches to view your current matches\n"
+                "🤫 Use /confess to share an anonymous confession in UniMatchConfessions\n"
+                "❓ Use /help to see all available commands",
+                parse_mode="Markdown"
+            )
             return ConversationHandler.END
-    
-    # If user exists but registration is not complete, update rather than recreate
-    if existing_user and not existing_user.registration_complete:
-        # Update the existing user with default values
-        existing_user.full_name = user.full_name if user.full_name else "Unknown"
-        existing_user.age = 0
-        existing_user.gender = Gender.MALE  # Default, will be updated
-        existing_user.interested_in = Gender.FEMALE  # Default, will be updated
-        existing_user.university = University.ALL_UNIVERSITIES  # Default, will be updated
-        existing_user.registration_complete = False
-        existing_user.current_state = REGISTRATION_STATES["NAME"]
-        db.session.commit()
-        new_user = existing_user
-    elif not existing_user:
-        # Create a new user with minimal details
-        new_user = User(
-            telegram_id=telegram_id,
-            full_name=user.full_name if user.full_name else "Unknown",
-            age=0,
-            gender=Gender.MALE,  # Default, will be updated
-            interested_in=Gender.FEMALE,  # Default, will be updated
-            university=University.ALL_UNIVERSITIES,  # Default, will be updated
-            registration_complete=False,
-            current_state=REGISTRATION_STATES["NAME"]
-        )
-        db.session.add(new_user)
+        
+        # Check if the user is a member of required channels before registration
+        from bot.notifications import check_channel_membership, prompt_channel_subscription
+        from config import REQUIRE_CHANNEL_MEMBERSHIP
+        
+        if REQUIRE_CHANNEL_MEMBERSHIP:
+            try:
+                is_member = await check_channel_membership(context, telegram_id)
+                if not is_member:
+                    # User needs to join the channels first
+                    await prompt_channel_subscription(update, context)
+                    # End the conversation and wait for callback_query
+                    return ConversationHandler.END
+            except Exception as e:
+                logger.error(f"Error checking channel membership: {e}")
+                # Continue with registration if channel check fails
+        
+        # Initialize the user record
+        
+        # If user exists but registration is not complete, update the existing record
+        if existing_user:
+            logger.info(f"Updating existing user {telegram_id} for registration")
+            # Update the existing user with default values
+            existing_user.full_name = user.full_name if user.full_name else "Unknown"
+            existing_user.age = 0
+            existing_user.gender = Gender.MALE  # Default, will be updated
+            existing_user.interested_in = Gender.FEMALE  # Default, will be updated
+            existing_user.university = University.ALL_UNIVERSITIES  # Default, will be updated
+            existing_user.registration_complete = False
+            existing_user.current_state = REGISTRATION_STATES["NAME"]
+            new_user = existing_user
+        else:
+            logger.info(f"Creating new user {telegram_id} for registration")
+            # Create a new user with minimal details
+            new_user = User(
+                telegram_id=telegram_id,
+                full_name=user.full_name if user.full_name else "Unknown",
+                age=0,
+                gender=Gender.MALE,  # Default, will be updated
+                interested_in=Gender.FEMALE,  # Default, will be updated
+                university=University.ALL_UNIVERSITIES,  # Default, will be updated
+                registration_complete=False,
+                current_state=REGISTRATION_STATES["NAME"]
+            )
+            db.session.add(new_user)
+        
+        # Commit the changes with error handling
         try:
             db.session.commit()
+            logger.info(f"Successfully saved user {telegram_id} to database")
         except Exception as e:
-            logger.error(f"Error creating new user: {e}")
+            logger.error(f"Database error creating/updating user: {e}")
             db.session.rollback()
-            # Try one more time with a query to handle race conditions
+            # Try to find the user again after rollback
             existing_user = User.query.filter_by(telegram_id=telegram_id).first()
             if existing_user:
+                logger.info(f"Found user {telegram_id} after database error")
                 new_user = existing_user
             else:
+                logger.error(f"Could not find or create user {telegram_id}")
                 await update.message.reply_text(
                     "Sorry, there was an error with registration. Please try again later.",
                     parse_mode="Markdown"
                 )
                 return ConversationHandler.END
-    
-    # Store user state with error handling
-    try:
-        # First check if user state already exists
-        existing_state = UserState.query.filter_by(telegram_id=telegram_id).first()
-        
-        if existing_state:
-            # Update existing state
-            existing_state.state = REGISTRATION_STATES["NAME"]
-            existing_state.data = {}
-            db.session.commit()
-            logger.info(f"Updated existing user state for user {telegram_id}")
-        else:
-            # Create new state
-            user_state = UserState(
-                telegram_id=telegram_id,
-                state=REGISTRATION_STATES["NAME"],
-                data={}
-            )
-            db.session.add(user_state)
-            db.session.commit()
-            logger.info(f"Created new user state for user {telegram_id}")
-    except Exception as e:
-        db.session.rollback()
-        logger.warning(f"Error managing user state during registration: {e}")
-        
-        # Try one more time just to update
+                
+        # Store user state with error handling
         try:
+            # First check if user state already exists
             existing_state = UserState.query.filter_by(telegram_id=telegram_id).first()
+            
             if existing_state:
+                # Update existing state
                 existing_state.state = REGISTRATION_STATES["NAME"]
                 existing_state.data = {}
                 db.session.commit()
-                logger.info(f"Successfully updated user state after error for user {telegram_id}")
-        except Exception as e2:
-            logger.error(f"Fatal error managing user state during registration: {e2}")
+                logger.info(f"Updated existing user state for user {telegram_id}")
+            else:
+                # Create new state
+                user_state = UserState(
+                    telegram_id=telegram_id,
+                    state=REGISTRATION_STATES["NAME"],
+                    data={}
+                )
+                db.session.add(user_state)
+                db.session.commit()
+                logger.info(f"Created new user state for user {telegram_id}")
+        except Exception as e:
+            db.session.rollback()
+            logger.warning(f"Error managing user state during registration: {e}")
+            
+            # Try one more time just to update
+            try:
+                existing_state = UserState.query.filter_by(telegram_id=telegram_id).first()
+                if existing_state:
+                    existing_state.state = REGISTRATION_STATES["NAME"]
+                    existing_state.data = {}
+                    db.session.commit()
+                    logger.info(f"Successfully updated user state after error for user {telegram_id}")
+            except Exception as e2:
+                logger.error(f"Fatal error managing user state during registration: {e2}")
+    except Exception as e:
+        logger.error(f"Unexpected error in start command: {e}")
+        await update.message.reply_text(
+            "Sorry, something went wrong. Please try again later by sending /start.",
+            parse_mode="Markdown"
+        )
+        return ConversationHandler.END
     
     # Create welcome messages with emojis and vibrant text
     welcome_messages = [
