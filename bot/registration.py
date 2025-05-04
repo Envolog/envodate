@@ -54,24 +54,46 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
             # End the conversation and wait for callback_query
             return ConversationHandler.END
     
-    # If user exists but registration is not complete, delete the user to start fresh
+    # If user exists but registration is not complete, update rather than recreate
     if existing_user and not existing_user.registration_complete:
-        db.session.delete(existing_user)
+        # Update the existing user with default values
+        existing_user.full_name = user.full_name if user.full_name else "Unknown"
+        existing_user.age = 0
+        existing_user.gender = Gender.MALE  # Default, will be updated
+        existing_user.interested_in = Gender.FEMALE  # Default, will be updated
+        existing_user.university = University.ALL_UNIVERSITIES  # Default, will be updated
+        existing_user.registration_complete = False
+        existing_user.current_state = REGISTRATION_STATES["NAME"]
         db.session.commit()
-    
-    # Create a new user with minimal details
-    new_user = User(
-        telegram_id=telegram_id,
-        full_name=user.full_name if user.full_name else "Unknown",
-        age=0,
-        gender=Gender.MALE,  # Default, will be updated
-        interested_in=Gender.FEMALE,  # Default, will be updated
-        university=University.ALL_UNIVERSITIES,  # Default, will be updated
-        registration_complete=False,
-        current_state=REGISTRATION_STATES["NAME"]
-    )
-    db.session.add(new_user)
-    db.session.commit()
+        new_user = existing_user
+    elif not existing_user:
+        # Create a new user with minimal details
+        new_user = User(
+            telegram_id=telegram_id,
+            full_name=user.full_name if user.full_name else "Unknown",
+            age=0,
+            gender=Gender.MALE,  # Default, will be updated
+            interested_in=Gender.FEMALE,  # Default, will be updated
+            university=University.ALL_UNIVERSITIES,  # Default, will be updated
+            registration_complete=False,
+            current_state=REGISTRATION_STATES["NAME"]
+        )
+        db.session.add(new_user)
+        try:
+            db.session.commit()
+        except Exception as e:
+            logger.error(f"Error creating new user: {e}")
+            db.session.rollback()
+            # Try one more time with a query to handle race conditions
+            existing_user = User.query.filter_by(telegram_id=telegram_id).first()
+            if existing_user:
+                new_user = existing_user
+            else:
+                await update.message.reply_text(
+                    "Sorry, there was an error with registration. Please try again later.",
+                    parse_mode="Markdown"
+                )
+                return ConversationHandler.END
     
     # Store user state with error handling
     try:

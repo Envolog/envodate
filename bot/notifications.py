@@ -149,11 +149,15 @@ async def check_channel_membership(context: ContextTypes.DEFAULT_TYPE, user_id: 
         # Check official channel membership
         official_result = False
         if OFFICIAL_CHANNEL_ID:
-            official_status = await context.bot.get_chat_member(
-                chat_id=OFFICIAL_CHANNEL_ID,
-                user_id=user_id
-            )
-            official_result = official_status.status in ['member', 'administrator', 'creator']
+            try:
+                official_status = await context.bot.get_chat_member(
+                    chat_id=OFFICIAL_CHANNEL_ID,
+                    user_id=user_id
+                )
+                official_result = official_status.status in ['member', 'administrator', 'creator']
+            except Exception as inner_e:
+                logger.error(f"Error checking official channel membership: {inner_e}")
+                official_result = True  # If there's an error, assume they're a member
         else:
             # If no channel ID is set, consider it a success
             official_result = True
@@ -161,11 +165,15 @@ async def check_channel_membership(context: ContextTypes.DEFAULT_TYPE, user_id: 
         # Check confession channel membership
         confession_result = False
         if CONFESSION_CHANNEL_ID:
-            confession_status = await context.bot.get_chat_member(
-                chat_id=CONFESSION_CHANNEL_ID,
-                user_id=user_id
-            )
-            confession_result = confession_status.status in ['member', 'administrator', 'creator']
+            try:
+                confession_status = await context.bot.get_chat_member(
+                    chat_id=CONFESSION_CHANNEL_ID,
+                    user_id=user_id
+                )
+                confession_result = confession_status.status in ['member', 'administrator', 'creator']
+            except Exception as inner_e:
+                logger.error(f"Error checking confession channel membership: {inner_e}")
+                confession_result = True  # If there's an error, assume they're a member
         else:
             # If no channel ID is set, consider it a success
             confession_result = True
