@@ -3,7 +3,7 @@ from telegram.ext import ContextTypes, ConversationHandler
 from sqlalchemy import desc
 from app import db
 from models import User, Report, Match, UserState, Confession
-from config import ADMIN_IDS, STATES
+from config import ADMIN_IDS, STATES, STATE_IDS
 import logging
 from datetime import datetime
 
@@ -276,7 +276,7 @@ async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         f"✅ User {unban_user.full_name} (ID: {unban_user.id}) has been unbanned."
     )
 
-async def handle_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+async def handle_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Handle a user report
     
@@ -328,7 +328,7 @@ async def handle_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> s
         "Be specific and provide details about what happened."
     )
     
-    return "report_reason"
+    return STATE_IDS["REPORT_REASON"]
 
 async def process_report_reason(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
@@ -349,7 +349,7 @@ async def process_report_reason(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text(
             "Please provide a more detailed reason for your report."
         )
-        return "report_reason"
+        return STATE_IDS["REPORT_REASON"]
     
     # Get user state
     user_state = UserState.query.filter_by(telegram_id=user.id).first()

@@ -8,12 +8,12 @@ from bot.keyboards import (
     gender_keyboard, interested_in_keyboard,
     universities_keyboard, confirmation_keyboard
 )
-from config import REGISTRATION_STATES, STATES, MIN_AGE, MAX_AGE, UNIVERSITIES
+from config import REGISTRATION_STATES, REGISTRATION_STATE_IDS, STATES, STATE_IDS, MIN_AGE, MAX_AGE, UNIVERSITIES
 
 # Initialize logger
 logger = logging.getLogger(__name__)
 
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Start the registration process when the user sends /start
     
@@ -148,9 +148,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> s
             "What is your full name?"
         )
     
-    return REGISTRATION_STATES["NAME"]
+    return REGISTRATION_STATE_IDS["NAME"]
 
-async def process_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+async def process_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Process the user's name and ask for age
     
@@ -168,7 +168,7 @@ async def process_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> st
         await update.message.reply_text(
             "Please enter a valid name (between 3 and 50 characters)."
         )
-        return REGISTRATION_STATES["NAME"]
+        return REGISTRATION_STATE_IDS["NAME"]
     
     # Update user name
     db_user = User.query.filter_by(telegram_id=user.id).first()
@@ -211,9 +211,9 @@ async def process_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> st
             f"How old are you? (Must be between {MIN_AGE} and {MAX_AGE})"
         )
     
-    return REGISTRATION_STATES["AGE"]
+    return REGISTRATION_STATE_IDS["AGE"]
 
-async def process_age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+async def process_age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Process the user's age and ask for gender
     
@@ -234,12 +234,12 @@ async def process_age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str
                 f"Sorry, this service is for users between {MIN_AGE} and {MAX_AGE} years old. "
                 f"Please enter a valid age."
             )
-            return REGISTRATION_STATES["AGE"]
+            return REGISTRATION_STATE_IDS["AGE"]
     except ValueError:
         await update.message.reply_text(
             "Please enter a valid number for your age."
         )
-        return REGISTRATION_STATES["AGE"]
+        return REGISTRATION_STATE_IDS["AGE"]
     
     # Update user age
     db_user = User.query.filter_by(telegram_id=user.id).first()
@@ -278,9 +278,9 @@ async def process_age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str
             reply_markup=gender_keyboard()
         )
     
-    return REGISTRATION_STATES["GENDER"]
+    return REGISTRATION_STATE_IDS["GENDER"]
 
-async def process_gender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+async def process_gender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Process the user's gender and ask for interest
     
@@ -340,9 +340,9 @@ async def process_gender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             reply_markup=interested_in_keyboard()
         )
     
-    return REGISTRATION_STATES["INTERESTED_IN"]
+    return REGISTRATION_STATE_IDS["INTERESTED_IN"]
 
-async def process_interested_in(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+async def process_interested_in(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Process the user's interest and ask for university
     
@@ -405,9 +405,9 @@ async def process_interested_in(update: Update, context: ContextTypes.DEFAULT_TY
             reply_markup=universities_keyboard()
         )
     
-    return REGISTRATION_STATES["UNIVERSITY"]
+    return REGISTRATION_STATE_IDS["UNIVERSITY"]
 
-async def process_university(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+async def process_university(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Process the user's university and ask for bio
     
@@ -430,7 +430,7 @@ async def process_university(update: Update, context: ContextTypes.DEFAULT_TYPE)
             "Invalid university selection. Please try again.",
             reply_markup=universities_keyboard()
         )
-        return REGISTRATION_STATES["UNIVERSITY"]
+        return REGISTRATION_STATE_IDS["UNIVERSITY"]
     
     # Update user university
     db_user = User.query.filter_by(telegram_id=user.id).first()
@@ -480,9 +480,9 @@ async def process_university(update: Update, context: ContextTypes.DEFAULT_TYPE)
             "You can skip this by typing 'skip'."
         )
     
-    return REGISTRATION_STATES["BIO"]
+    return REGISTRATION_STATE_IDS["BIO"]
 
-async def process_bio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+async def process_bio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Process the user's bio and ask for photo
     
@@ -505,19 +505,19 @@ async def process_bio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str
         await update.message.reply_text(
             "Your bio is too long. Please keep it under 300 characters."
         )
-        return REGISTRATION_STATES["BIO"]
+        return REGISTRATION_STATE_IDS["BIO"]
     
     # Update user bio
     db_user = User.query.filter_by(telegram_id=user.id).first()
     if db_user:
         db_user.bio = bio
-        db_user.current_state = REGISTRATION_STATES["PHOTO"]
+        db_user.current_state = REGISTRATION_STATE_IDS["PHOTO"]
         db.session.commit()
     
     # Update user state
     user_state = UserState.query.filter_by(telegram_id=user.id).first()
     if user_state:
-        user_state.state = REGISTRATION_STATES["PHOTO"]
+        user_state.state = REGISTRATION_STATE_IDS["PHOTO"]
         user_state.data = {**user_state.data, "bio": bio}
         db.session.commit()
     
@@ -555,9 +555,9 @@ async def process_bio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str
             "Make sure it's a clear photo of yourself."
         )
     
-    return REGISTRATION_STATES["PHOTO"]
+    return REGISTRATION_STATE_IDS["PHOTO"]
 
-async def process_photo(update: Update, context: ContextTypes.DEFAULT_TYPE, is_text=False) -> str:
+async def process_photo(update: Update, context: ContextTypes.DEFAULT_TYPE, is_text=False) -> int:
     """
     Process the user's photo and ask for confirmation
     
@@ -577,7 +577,7 @@ async def process_photo(update: Update, context: ContextTypes.DEFAULT_TYPE, is_t
             "Please send a photo, not text. "
             "A profile photo is required for matching."
         )
-        return REGISTRATION_STATES["PHOTO"]
+        return REGISTRATION_STATE_IDS["PHOTO"]
     
     # Get the photo
     photo = update.message.photo[-1]  # Get the largest size
@@ -587,20 +587,20 @@ async def process_photo(update: Update, context: ContextTypes.DEFAULT_TYPE, is_t
     db_user = User.query.filter_by(telegram_id=user.id).first()
     if db_user:
         db_user.photo_id = photo_id
-        db_user.current_state = REGISTRATION_STATES["CONFIRM"]
+        db_user.current_state = REGISTRATION_STATE_IDS["CONFIRM"]
         db.session.commit()
     
     # Update user state
     user_state = UserState.query.filter_by(telegram_id=user.id).first()
     if user_state:
-        user_state.state = REGISTRATION_STATES["CONFIRM"]
+        user_state.state = REGISTRATION_STATE_IDS["CONFIRM"]
         user_state.data = {**user_state.data, "photo_id": photo_id}
         db.session.commit()
     
     # Send profile summary for confirmation
     await send_profile_summary(update, context, db_user)
     
-    return REGISTRATION_STATES["CONFIRM"]
+    return REGISTRATION_STATE_IDS["CONFIRM"]
 
 async def send_profile_summary(update: Update, context: ContextTypes.DEFAULT_TYPE, user_data):
     """
@@ -658,15 +658,15 @@ async def confirm_registration(update: Update, context: ContextTypes.DEFAULT_TYP
         # Update user state
         db_user = User.query.filter_by(telegram_id=user.id).first()
         if db_user:
-            db_user.current_state = REGISTRATION_STATES["NAME"]
+            db_user.current_state = REGISTRATION_STATE_IDS["NAME"]
             db.session.commit()
             
         user_state = UserState.query.filter_by(telegram_id=user.id).first()
         if user_state:
-            user_state.state = REGISTRATION_STATES["NAME"]
+            user_state.state = REGISTRATION_STATE_IDS["NAME"]
             db.session.commit()
             
-        return REGISTRATION_STATES["NAME"]
+        return REGISTRATION_STATE_IDS["NAME"]
     
     # Confirm and complete registration
     db_user = User.query.filter_by(telegram_id=user.id).first()

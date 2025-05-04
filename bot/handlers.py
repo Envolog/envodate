@@ -37,6 +37,7 @@ from bot.notifications import (
     handle_membership_check
 )
 from bot.utils import cancel_command, help_command, about_command, ping_command
+from config import REGISTRATION_STATE_IDS, STATE_IDS
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -54,17 +55,17 @@ def register_handlers(application: Application) -> None:
     registration_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start_command)],
         states={
-            'reg_name': [MessageHandler(filters.TEXT & ~filters.COMMAND, process_name)],
-            'reg_age': [MessageHandler(filters.TEXT & ~filters.COMMAND, process_age)],
-            'reg_gender': [CallbackQueryHandler(process_gender, pattern='^(male|female)$')],
-            'reg_interested_in': [CallbackQueryHandler(process_interested_in, pattern='^(male|female)$')],
-            'reg_university': [CallbackQueryHandler(process_university)],
-            'reg_bio': [MessageHandler(filters.TEXT & ~filters.COMMAND, process_bio)],
-            'reg_photo': [
+            REGISTRATION_STATE_IDS["NAME"]: [MessageHandler(filters.TEXT & ~filters.COMMAND, process_name)],
+            REGISTRATION_STATE_IDS["AGE"]: [MessageHandler(filters.TEXT & ~filters.COMMAND, process_age)],
+            REGISTRATION_STATE_IDS["GENDER"]: [CallbackQueryHandler(process_gender, pattern='^(male|female)$')],
+            REGISTRATION_STATE_IDS["INTERESTED_IN"]: [CallbackQueryHandler(process_interested_in, pattern='^(male|female)$')],
+            REGISTRATION_STATE_IDS["UNIVERSITY"]: [CallbackQueryHandler(process_university)],
+            REGISTRATION_STATE_IDS["BIO"]: [MessageHandler(filters.TEXT & ~filters.COMMAND, process_bio)],
+            REGISTRATION_STATE_IDS["PHOTO"]: [
                 MessageHandler(filters.PHOTO, process_photo),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, lambda update, context: process_photo(update, context, is_text=True))
             ],
-            'reg_confirm': [CallbackQueryHandler(confirm_registration, pattern='^(confirm|edit)$')],
+            REGISTRATION_STATE_IDS["CONFIRM"]: [CallbackQueryHandler(confirm_registration, pattern='^(confirm|edit)$')],
         },
         fallbacks=[CommandHandler('cancel', cancel_command)],
         name="registration",
@@ -89,7 +90,7 @@ def register_handlers(application: Application) -> None:
     confession_handler = ConversationHandler(
         entry_points=[CommandHandler('confess', confess_command)],
         states={
-            'confession_text': [MessageHandler(filters.TEXT & ~filters.COMMAND, process_confession_text)],
+            STATE_IDS["CONFESSION_TEXT"]: [MessageHandler(filters.TEXT & ~filters.COMMAND, process_confession_text)],
         },
         fallbacks=[CommandHandler('cancel', cancel_command)],
         name="confession",
@@ -101,7 +102,7 @@ def register_handlers(application: Application) -> None:
     report_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(handle_report, pattern='^report_user_')],
         states={
-            'report_reason': [MessageHandler(filters.TEXT & ~filters.COMMAND, process_report_reason)],
+            STATE_IDS["REPORT_REASON"]: [MessageHandler(filters.TEXT & ~filters.COMMAND, process_report_reason)],
         },
         fallbacks=[CommandHandler('cancel', cancel_command)],
         name="report",

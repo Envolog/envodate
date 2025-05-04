@@ -3,13 +3,13 @@ from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 from app import db
 from models import User, Confession, BannedWord, UserState
-from config import STATES, CONFESSION_CHANNEL_ID, REQUIRE_CONFESSION_APPROVAL
+from config import STATES, STATE_IDS, CONFESSION_CHANNEL_ID, REQUIRE_CONFESSION_APPROVAL
 import logging
 
 # Initialize logger
 logger = logging.getLogger(__name__)
 
-async def confess_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+async def confess_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Start the confession submission process
     
@@ -61,7 +61,7 @@ async def confess_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         parse_mode="Markdown"
     )
     
-    return "confession_text"
+    return STATE_IDS["CONFESSION_TEXT"]
 
 async def process_confession_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
@@ -82,13 +82,13 @@ async def process_confession_text(update: Update, context: ContextTypes.DEFAULT_
         await update.message.reply_text(
             "Your confession is too short. Please provide a more detailed confession."
         )
-        return "confession_text"
+        return STATE_IDS["CONFESSION_TEXT"]
     
     if len(confession_text) > 500:
         await update.message.reply_text(
             "Your confession is too long. Please limit it to 500 characters."
         )
-        return "confession_text"
+        return STATE_IDS["CONFESSION_TEXT"]
     
     # Get the user from the database
     db_user = User.query.filter_by(telegram_id=user.id).first()
