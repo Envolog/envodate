@@ -61,11 +61,30 @@ def setup_webhook(app: Flask, bot: Application, token: str):
                     logger.error(f"Failed to convert update: {e}")
                     return jsonify({"status": "success", "message": "Invalid update format"}), 200
                 
-                # Process the update
+                # Process the update in a non-blocking way
                 try:
-                    # Use the event loop we created earlier
-                    loop.run_until_complete(bot.process_update(update))
-                    logger.info("Update processing started")
+                    # Just acknowledge receipt and spawn a background thread for processing
+                    # This prevents the webhook response from timing out
+                    import threading
+                    
+                    def process_update_in_thread():
+                        try:
+                            # Create a new event loop for this thread
+                            thread_loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(thread_loop)
+                            # Process the update
+                            thread_loop.run_until_complete(bot.process_update(update))
+                            thread_loop.close()
+                            logger.info("Update processing completed in background thread")
+                        except Exception as e:
+                            logger.error(f"Background thread processing error: {e}")
+                    
+                    # Start processing in background thread
+                    processing_thread = threading.Thread(target=process_update_in_thread)
+                    processing_thread.daemon = True  # Allow thread to exit when main thread exits
+                    processing_thread.start()
+                    
+                    logger.info("Update processing started in background thread")
                 except Exception as e:
                     logger.error(f"Failed to process update: {e}")
                     # Continue and return success anyway
