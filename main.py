@@ -146,8 +146,10 @@ if __name__ == "__main__":
 
 # Direct webhook management routes
 @app.route('/setup_webhook_direct')
-async def setup_webhook_direct():
+def setup_webhook_direct():
     """Set up webhook directly from the current host"""
+    import asyncio
+    
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
         return jsonify({"status": "error", "message": "No bot token available"}), 400
@@ -162,15 +164,19 @@ async def setup_webhook_direct():
         from bot import get_bot
         bot_instance = get_bot()
         
+        # Create a new event loop for async operations
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
         # Delete any existing webhook
         try:
-            await bot_instance.bot.delete_webhook()
+            loop.run_until_complete(bot_instance.bot.delete_webhook())
             logger.info("Existing webhook deleted")
         except Exception as e:
             logger.warning(f"Error deleting existing webhook: {e}")
         
         # Set the new webhook
-        await bot_instance.bot.set_webhook(url=webhook_url)
+        loop.run_until_complete(bot_instance.bot.set_webhook(url=webhook_url))
         
         return jsonify({
             "status": "success", 
@@ -181,8 +187,10 @@ async def setup_webhook_direct():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/delete_webhook_direct')
-async def delete_webhook_direct():
+def delete_webhook_direct():
     """Delete the current webhook"""
+    import asyncio
+    
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
         return jsonify({"status": "error", "message": "No bot token available"}), 400
@@ -192,8 +200,12 @@ async def delete_webhook_direct():
         from bot import get_bot
         bot_instance = get_bot()
         
+        # Create a new event loop for async operations
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
         # Delete the webhook
-        await bot_instance.bot.delete_webhook()
+        loop.run_until_complete(bot_instance.bot.delete_webhook())
         
         return jsonify({
             "status": "success", 
@@ -205,8 +217,10 @@ async def delete_webhook_direct():
 
 # Manual URL webhook setup route
 @app.route('/set_webhook_url')
-async def set_webhook_url():
+def set_webhook_url():
     """Set webhook to a specific URL"""
+    import asyncio
+    
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
         return jsonify({"status": "error", "message": "No bot token available"}), 400
@@ -256,15 +270,19 @@ async def set_webhook_url():
         from bot import get_bot
         bot_instance = get_bot()
         
+        # Create a new event loop for async operations
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
         # Delete any existing webhook
         try:
-            await bot_instance.bot.delete_webhook()
+            loop.run_until_complete(bot_instance.bot.delete_webhook())
             logger.info("Existing webhook deleted")
         except Exception as e:
             logger.warning(f"Error deleting existing webhook: {e}")
         
         # Set the new webhook
-        await bot_instance.bot.set_webhook(url=webhook_url)
+        loop.run_until_complete(bot_instance.bot.set_webhook(url=webhook_url))
         
         return f"""
         <!DOCTYPE html>

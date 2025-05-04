@@ -24,7 +24,7 @@ def setup_webhook(app: Flask, bot: Application, token: str):
     webhook_url_path = f"/webhook/{token}"
     
     @app.route(webhook_url_path, methods=["POST", "GET"])
-    async def webhook():
+    def webhook():
         """Process incoming webhook updates from Telegram"""
         # Handle GET requests (for testing)
         if request.method == "GET":
@@ -42,9 +42,13 @@ def setup_webhook(app: Flask, bot: Application, token: str):
                     logger.error(f"Failed to parse update JSON: {e}")
                     return jsonify({"status": "success", "message": "Could not parse update data"}), 200
                 
+                # Use a new event loop to handle async operations
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
                 # Initialize the bot if needed
                 try:
-                    await initialize_bot(bot)
+                    loop.run_until_complete(initialize_bot(bot))
                     logger.info("Bot initialized successfully")
                 except Exception as e:
                     logger.error(f"Bot initialization error: {e}")
@@ -57,9 +61,13 @@ def setup_webhook(app: Flask, bot: Application, token: str):
                     logger.error(f"Failed to convert update: {e}")
                     return jsonify({"status": "success", "message": "Invalid update format"}), 200
                 
-                # Process the update in a background task to avoid blocking
+                # Process the update
                 try:
-                    asyncio.create_task(bot.process_update(update))
+                    # Create a future to run the process_update coroutine
+                    future = asyncio.run_coroutine_threadsafe(
+                        bot.process_update(update),
+                        bot._loop
+                    )
                     logger.info("Update processing started")
                 except Exception as e:
                     logger.error(f"Failed to process update: {e}")
@@ -80,7 +88,7 @@ def setup_webhook(app: Flask, bot: Application, token: str):
     # Webhook ping endpoint removed - using the one in main.py instead
     
     @app.route("/set_webhook", methods=["GET"])
-    async def set_webhook():
+    def set_webhook():
         """Set the webhook URL for the bot"""
         # Get the webhook URL from the request
         webhook_url = request.args.get("url")
@@ -91,14 +99,18 @@ def setup_webhook(app: Flask, bot: Application, token: str):
         webhook_url = f"{webhook_url.rstrip('/')}{webhook_url_path}"
         
         try:
+            # Use a new event loop to handle async operations
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
             # Initialize the bot
             try:
-                await initialize_bot(bot)
+                loop.run_until_complete(initialize_bot(bot))
             except Exception as e:
                 logger.warning(f"Bot initialization warning: {e}")
                 
             # Set the webhook
-            await bot.bot.set_webhook(url=webhook_url)
+            loop.run_until_complete(bot.bot.set_webhook(url=webhook_url))
             return jsonify({
                 "status": "success",
                 "message": f"Webhook set to {webhook_url}"
@@ -108,17 +120,21 @@ def setup_webhook(app: Flask, bot: Application, token: str):
             return jsonify({"status": "error", "message": str(e)}), 500
     
     @app.route("/remove_webhook", methods=["GET"])
-    async def remove_webhook():
+    def remove_webhook():
         """Remove the webhook"""
         try:
+            # Use a new event loop to handle async operations
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
             # Initialize the bot
             try:
-                await initialize_bot(bot)
+                loop.run_until_complete(initialize_bot(bot))
             except Exception as e:
                 logger.warning(f"Bot initialization warning: {e}")
             
             # Remove the webhook
-            await bot.bot.delete_webhook()
+            loop.run_until_complete(bot.bot.delete_webhook())
             return jsonify({
                 "status": "success",
                 "message": "Webhook removed"
