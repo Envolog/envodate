@@ -28,6 +28,18 @@ REGISTRATION_STATES = {
     "CONFIRM": "reg_confirm",
 }
 
+# State IDs for ConversationHandler (must be integers)
+REGISTRATION_STATE_IDS = {
+    "NAME": 1,
+    "AGE": 2,
+    "GENDER": 3,
+    "INTERESTED_IN": 4,
+    "UNIVERSITY": 5,
+    "BIO": 6,
+    "PHOTO": 7,
+    "CONFIRM": 8,
+}
+
 # Other States
 STATES = {
     "IDLE": "idle",
@@ -36,6 +48,18 @@ STATES = {
     "CONFESSION": "confession",
     "REPORT": "report",
     "ADMIN": "admin",
+}
+
+# State IDs for Other States
+STATE_IDS = {
+    "IDLE": 0,
+    "VIEWING_PROFILE": 11,
+    "CHATTING": 12,
+    "CONFESSION": 13,
+    "REPORT": 14,
+    "ADMIN": 15,
+    "CONFESSION_TEXT": 16,
+    "REPORT_REASON": 17,
 }
 
 # Universities list
