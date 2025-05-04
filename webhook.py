@@ -69,15 +69,29 @@ def setup_webhook(app: Flask, bot: Application, token: str):
                     
                     def process_update_in_thread():
                         try:
-                            # Create a new event loop for this thread
-                            thread_loop = asyncio.new_event_loop()
-                            asyncio.set_event_loop(thread_loop)
-                            # Process the update
-                            thread_loop.run_until_complete(bot.process_update(update))
-                            thread_loop.close()
-                            logger.info("Update processing completed in background thread")
+                            # Import Flask app for creating application context
+                            from app import app
+                            
+                            # Create application context for this thread
+                            with app.app_context():
+                                try:
+                                    # Create a new event loop for this thread
+                                    thread_loop = asyncio.new_event_loop()
+                                    asyncio.set_event_loop(thread_loop)
+                                    # Process the update
+                                    thread_loop.run_until_complete(bot.process_update(update))
+                                    thread_loop.close()
+                                    logger.info("Update processing completed in background thread")
+                                except Exception as e:
+                                    import traceback
+                                    error_traceback = traceback.format_exc()
+                                    logger.error(f"Error processing update within app context: {e}")
+                                    logger.error(f"Traceback: {error_traceback}")
                         except Exception as e:
+                            import traceback
+                            error_traceback = traceback.format_exc()
                             logger.error(f"Background thread processing error: {e}")
+                            logger.error(f"Traceback: {error_traceback}")
                     
                     # Start processing in background thread
                     processing_thread = threading.Thread(target=process_update_in_thread)
